@@ -16,7 +16,6 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 from email import encoders
-from typing import List, IO
 
 
 log_path = config.log_path
@@ -35,8 +34,7 @@ class EmailMsg(object):
     Email message definition.
     """
 
-    def __init__(self, send_from: str, send_to: List[str], subject: str,
-                 text: str, attachments: List[str]=None):
+    def __init__(self, send_from, send_to, subject, text, attachments):
         self.send_from = send_from
         self.send_to = send_to
         self.subject = subject
@@ -45,13 +43,16 @@ class EmailMsg(object):
 
     def __repr__(self):
         return (
-            f"subject: {self.subject};"
-            f"attachments: {True if self.attachments else False};"
-            f"no_attached: {len(self.attachments)}"
+            "subject: {};"
+            "attachments: {};"
+            "no_attached: {}".format(
+                self.subject,
+                True if self.attachments else False,
+                len(self.attachments if self.attachments else []))
         )
 
     @staticmethod
-    def attach_data(data: IO[bytes], file_name: str) -> MIMEBase:
+    def attach_data(data, file_name):
         """
         Encode and attach bytes as message attachment.
         """
@@ -60,28 +61,29 @@ class EmailMsg(object):
         encoders.encode_base64(part)
         part.add_header(
             "Content-Disposition",
-            f"attachment; filename={os.path.basename(file_name)}"
+            "attachment; filename={}".format(os.path.basename(file_name))
         )
         return part
 
-    def attach_file(self, file_name: str) -> MIMEBase:
+    def attach_file(self, file_name):
         """
         Attach file from 'file_name' to message.
         """
         with open(file_name, "rb") as f:
             return self.attach_data(data=f, file_name=file_name)
 
-    def attach_all_attachments(self, message: MIMEMultipart) -> MIMEMultipart:
+    def attach_all_attachments(self, message):
         """
         Attach all files from 'self.attachments' to message.
         """
-        for file_ in self.attachments:
-            part = self.attach_file(file_name=file_)
-            message.attach(part)
+        if self.attachments:
+            for file_ in self.attachments:
+                part = self.attach_file(file_name=file_)
+                message.attach(part)
 
         return message
 
-    def build_msg(self) -> str:
+    def build_msg(self):
         """
         Builds a message from arguments provided in '__init__'.
         """
@@ -100,14 +102,14 @@ class EmailMsg(object):
 class SMTPPostMan(object):
     """Defines a SMTPPostMan object."""
 
-    def __init__(self, smtp_host: str, smtp_port: int, addr: str, pwd: str):
+    def __init__(self, smtp_host, smtp_port, addr, pwd):
         self.smtp_host = smtp_host
         self.smtp_port = smtp_port
         self.addr = addr
         self.pwd = pwd
 
     @staticmethod
-    def valid_email(email: str) -> bool:
+    def valid_email(email):
         """
         Regex email address validation.
         """
@@ -116,7 +118,7 @@ class SMTPPostMan(object):
             return True
         return False
 
-    def _send(self, send_to: List[str], message: EmailMsg) -> None:
+    def _send(self, send_to, message):
         """
         Sends a message over SMTP
         """
@@ -126,8 +128,8 @@ class SMTPPostMan(object):
             server.login(self.addr, self.pwd)
             server.sendmail(self.addr, send_to, message.build_msg())
 
-            logger.info(f"{message}")
-            logger.info(f'Email sent.\t{self.addr} --> {send_to}')
+            logger.info("{}".format(message))
+            logger.info('Email sent.\t{} --> {}'.format(self.addr, send_to))
 
         except Exception:
             logger.error("Failed to send email!", exc_info=True)
@@ -136,8 +138,7 @@ class SMTPPostMan(object):
             res = server.quit()
             logger.info(res)
 
-    def send_email(self, send_to: List[str], subject: str=None, text: str=None,
-                   attachments: List[str]=None):
+    def send_email(self, send_to, subject=None, text=None, attachments=None):
         """
         Send a message with all its attachments to a recipient.
         """
@@ -147,7 +148,7 @@ class SMTPPostMan(object):
         for recipient in send_to:
             if not self.valid_email(email=recipient):
                 logger.warning(
-                    f"Recipient email address [{send_to}] seems invalid.",
+                    "Recipient email address [{}] seems invalid.".format(send_to),
                     "Sending may fail."
                 )
 
@@ -161,3 +162,17 @@ class SMTPPostMan(object):
         self._send(send_to=send_to, message=msg)
         logger.info(80 * "=")
 
+
+if __name__ == "__main__":
+    post_man = SMTPPostMan(
+        smtp_host=config.smtp_host,
+        smtp_port=config.smtp_port,
+        addr=config.addr,
+        pwd=config.pwd
+    )
+
+    post_man.send_email(
+        send_to=["virgovica@gmail.com"],
+        subject="hello",
+        text="smradlavy geeeetz"
+    )
