@@ -11,6 +11,7 @@ import os
 import smtplib
 import logging
 import config
+import datetime
 
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -126,7 +127,7 @@ class SMTPPostMan(object):
             server.login(self.addr, self.pwd)
             server.sendmail(self.addr, send_to, message.build_msg())
 
-            logger.info(f"{message}")
+            logger.info(f"{str(datetime.datetime.now()).split('.')[0]}\t{message}")
             logger.info(f'Email sent.\t{self.addr} --> {send_to}')
 
         except Exception:
